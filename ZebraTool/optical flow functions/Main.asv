@@ -1,0 +1,95 @@
+close all
+
+Optical_show=1;
+atomatic_crop=0;
+
+inputpath_raw='D:\COMPUTER SCIENCE LEC\Dr. Pal\zebra fish\ZebraFish_DataSet\2016\5dpf\mut\mut\';
+Optical_matFile='.\Optical_matFile\2016\5dpf\mut\';
+
+if (~isdir(Optical_matFile))
+    mkdir(Optical_matFile);
+end
+
+flist=dir(fullfile(inputpath_raw,'*.tif'));
+for i=5:size(flist,1)
+%     try
+        % seq=imread(fullfile(inputpath_raw,flist(i).name));
+        fileName = fullfile(inputpath_raw,flist(i).name);
+        tiffInfo = imfinfo(fileName);  %# Get the TIFF file information
+        no_frame = numel(tiffInfo);    %# Get the number of images in the file
+        Movie = cell(no_frame,1);      %# Preallocate the cell array
+        
+        for iFrame = 1:no_frame
+            Movie{iFrame} = double(imread(fileName,'Index',iFrame,'Info',tiffInfo));
+        end
+        % % figure,imshow(fish)
+        fish=Movie{1};
+%           fish=rgb2gray(fish);
+if atomatic_crop==0
+             figure,imshow(fish,[]);
+          rect= getrect;
+           Template=fish(rect(2):(rect(2)+rect(4)),rect(1):(rect(1)+rect(3)));
+else
+    load('raw_im.mat')
+Template=raw_im;
+
+end
+        c = normxcorr2(Template,fish);
+        [ypeak, xpeak] = find(c==max(c(:)));
+        yoffSet = ypeak-size(Template,1);
+        xoffSet = xpeak-size(Template,2);
+        hFig = figure;
+        hAx  = axes;
+        imshow(fish,'Parent', hAx);
+        imrect(hAx, [xoffSet+1, yoffSet+1, size(Template,2), size(Template,1)]);
+        % % rect=[xoffSet+1, yoffSet+1, size(Cropped,2), size(Cropped,1)];
+         for iFrame = 1:no_frame-1
+             if iFrame==8
+                 stop=1;
+             end
+             %Create folder for save Optical flow
+             Folder=strcat(fullfile(Optical_matFile, flist(i).name(1:end-4)));
+             if (~isdir(Folder))
+    mkdir(Folder);
+             end
+ Folder1=strcat(Folder,'\MatFile\');
+  if (~isdir(Folder1))
+    mkdir(Folder1);
+  end
+%            Folder2=strcat(Folder,'\Visualization');
+%   if (~isdir(Folder2))
+%     mkdir(Folder2);
+%   end   
+
+             
+            im1=double(imread(fileName,'Index',iFrame,'Info',tiffInfo));
+          im2=double(imread(fileName,'Index',iFrame+1,'Info',tiffInfo));
+          
+          
+         myimg1 = imcrop(im1,[xoffSet+1, yoffSet+1, size(Template,2), size(Template,1)]);
+         myimg2 = imcrop(im2,[xoffSet+1, yoffSet+1, size(Template,2), size(Template,1)]);
+         
+          uv = estimate_flow_interface( myimg1,  myimg2);
+          out_pth=strcat(fullfile(Optical_matFile, flist(i).name(1:end-4),'MatFile',strcat('UV_',num2str(iFrame+1 ,'%03d'))),'.mat');
+          
+          save(out_pth,'uv');
+ 
+%           figure,imshow(myimg,[])
+         end
+         close all
+        % ex=strcat('Image_',num2str(i,'%03d'),'.jpg');
+        %         imwrite(myimg,[Cropped_path,'\', ex ]);
+        % end
+        %
+%            Optical_flow_main(Cropped_path)
+        %
+          if Optical_show==1
+%               UVPath='UV_Vec';
+              ShowResult(Folder1)
+          end
+%     catch
+%         disp('An error occurred while retrieving information from the internet.');
+%         disp('Execution will continue.');
+%         x=x+1
+%     end
+end
